@@ -26,6 +26,50 @@ func NewBreezeClient(AppKey, SecretKey string) *BreezeClient {
 	}
 }
 
+func (bc *BreezeClient) request(method, path string, payload any) (any, error) {
+	// We won't simply json.Marshl() our payload because we have to make sure that extra whitespaces
+	// dont' seep into our request body. That will make Checksum fail on the API side in complex scenarios.
+	// Instead, we ought to create a buffer, write our payload into it and encode it into a JSON using json.encode()
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf) // This will write the JSON Encoding directly to our buffer buf
+	// encoder.SetIndent("", "") // Disabled for now.
+	err := encoder.Encode(payload)
+	if err != nil {
+		return nil, fmt.Errorf("Error in encoding our payload: %v", err)
+	}
+
+	payloadString := buf.Bytes()
+	// Generating Timestamp and Checksum
+	timestamp := bc.generateTimestamp()
+	checksum := bc.generateChecksum(timestamp, string(payloadString))
+	// Full Path
+	fullPath := baseURL + path
+	// Creating the Request
+	req, err := http.NewRequest(method, fullPath, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating request :%v", err)
+	}
+	req.Header.Add("X-Checksum", "token"+checksum)
+	req.Header.Add("X-Timestamp", timestamp)
+	req.Header.Add("X-AppKey", bc.appKey)
+	req.Header.Add("X-SessionToken", bc.sessionToken)
+	// Creating the HTTP Client and sending the request
+	httpClient := &http.Client{}
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Error occured in Response: %v", err)
+	}
+	responseBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Error in reading the response: %v", err)
+	}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("The response status is not 200 OK. Error Code:%v, Body: %v", res.StatusCode, string(responseBytes))
+	}
+	defer res.Body.Close()
+	return responseBytes, nil
+}
+
 // returns the current UTC time formatted exactly as required by the API
 // : ISO8601 with 0 milliseconds, ending in Z (e.g., 2024-06-01T10:23:56.000Z).
 func (bc *BreezeClient) generateTimestamp() string {
@@ -46,9 +90,9 @@ func (bc *BreezeClient) generateChecksum(timestamp string, payload string) strin
 
 // login url
 func (bc *BreezeClient) GetLoginURL() string {
-	baseURL := "https://api.icicidirect.com/apiuser/login?api_key="
-	baseURL += bc.appKey
-	return baseURL
+	baseLoginURL := "https://api.icicidirect.com/apiuser/login?api_key="
+	baseLoginURL += bc.appKey
+	return baseLoginURL
 }
 
 func (bc *BreezeClient) ObtainSessionToken(apiSessionKey string) error {
@@ -101,6 +145,7 @@ func (bc *BreezeClient) ObtainSessionToken(apiSessionKey string) error {
 	}
 	// saving the sessionToken
 	bc.sessionToken = cdr.Success.Session_token
+	fmt.Println("Session Token:", bc.sessionToken)
 
 	return nil
 }
