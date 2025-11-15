@@ -38,7 +38,7 @@ type PlaceOrderResponse struct {
 }
 
 func (bc *BreezeClient) PlaceOrder(order PlaceOrderRequest) (PlaceOrderSuccess, error) {
-	res, err := bc.request("POST", "order", PlaceOrderRequest{})
+	res, err := bc.request("POST", "order", order)
 	if err != nil {
 		return PlaceOrderSuccess{}, fmt.Errorf("There was an error getting response: %v", err)
 	}
