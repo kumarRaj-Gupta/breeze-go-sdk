@@ -10,17 +10,16 @@ import (
 
 func main() {
 	AppKey := "9Lws0945644628f5PW394813990390h2"
-	SecretKey := "#S3298$c88r5902%610998c8626MD200"
+	SecretKey := strings.TrimSpace("956K898494)0p5YF4xfN7bu45S897!M6")
 	breezeClient := breeze.NewBreezeClient(AppKey, SecretKey)
 	fmt.Println("Breeze Go Client Initialized.")
 
 	loginURL := breezeClient.GetLoginURL()
 
 	// Reading from os.Stdin
-	fmt.Println("Copy and Paste the REDIRECT URL you get after opening this link.")
 	fmt.Println("Open this link 👍")
 	fmt.Println(loginURL)
-	fmt.Println("Paste the REDIRECT URL here:")
+	fmt.Println("Paste the session key named apisession here:")
 	cmdlineReader := bufio.NewReader(os.Stdin)
 	inputValid := false
 	for !inputValid {
@@ -30,10 +29,11 @@ func main() {
 			continue
 		}
 		input = strings.TrimSpace(input)
+		fmt.Println("The session key your provided:", input)
 		err = breezeClient.CompleteLogin(input)
 		if err != nil {
 			fmt.Println(err)
-			fmt.Println("Couldn't Process this REDIRECT URL. Please Retry 😥 ")
+			fmt.Println("Couldn't Process this session key. Please Retry 😥 ")
 			continue
 		}
 		fmt.Println("Retrieved the Session Token Successfully. ")

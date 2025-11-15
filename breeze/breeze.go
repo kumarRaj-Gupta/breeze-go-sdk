@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	"strings"
 	"time"
 )
 
@@ -30,32 +30,35 @@ func (bc *BreezeClient) request(method, path string, payload any) (any, error) {
 	// We won't simply json.Marshl() our payload because we have to make sure that extra whitespaces
 	// dont' seep into our request body. That will make Checksum fail on the API side in complex scenarios.
 	// Instead, we ought to create a buffer, write our payload into it and encode it into a JSON using json.encode()
-	var buf bytes.Buffer
-	encoder := json.NewEncoder(&buf) // This will write the JSON Encoding directly to our buffer buf
-	// encoder.SetIndent("", "") // Disabled for now.
-	err := encoder.Encode(payload)
-	if err != nil {
-		return nil, fmt.Errorf("Error in encoding our payload: %v", err)
-	}
+	//
+	// Looks like we have to use json.Marshal afterall. The checksum is causing a lot of issues.
 
-	payloadString := buf.Bytes()
+	rawJSONBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("Error Marshaling the payload")
+	}
+	var compactJSON bytes.Buffer
+	err = json.Compact(&compactJSON, rawJSONBytes)
+	payloadBytes := compactJSON.Bytes()
 	// Generating Timestamp and Checksum
 	timestamp := bc.generateTimestamp()
-	checksum := bc.generateChecksum(timestamp, string(payloadString))
+	checksum := bc.generateChecksum(timestamp, string(payloadBytes))
 	// Full Path
 	fullPath := baseURL + path
 	// Creating the Request
-	req, err := http.NewRequest(method, fullPath, &buf)
+	req, err := http.NewRequest(method, fullPath, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("Error creating request :%v", err)
 	}
-	req.Header.Add("X-Checksum", "token"+checksum)
+	req.Header.Add("X-Checksum", "token "+checksum)
 	req.Header.Add("X-Timestamp", timestamp)
 	req.Header.Add("X-AppKey", bc.appKey)
 	req.Header.Add("X-SessionToken", bc.sessionToken)
 	// Creating the HTTP Client and sending the request
 	httpClient := &http.Client{}
 	res, err := httpClient.Do(req)
+	fmt.Println("Request :", req)
+	fmt.Println("Response", res)
 	if err != nil {
 		return nil, fmt.Errorf("Error occured in Response: %v", err)
 	}
@@ -74,7 +77,7 @@ func (bc *BreezeClient) request(method, path string, payload any) (any, error) {
 // : ISO8601 with 0 milliseconds, ending in Z (e.g., 2024-06-01T10:23:56.000Z).
 func (bc *BreezeClient) generateTimestamp() string {
 	currentTime := time.Now().UTC()
-	formattedTime := currentTime.Format("2006-01-02T15:04:05.000Z")
+	formattedTime := currentTime.Truncate(time.Second).Format("2006-01-02T15:04:05.000Z")
 	return formattedTime
 }
 
@@ -84,7 +87,8 @@ func (bc *BreezeClient) generateChecksum(timestamp string, payload string) strin
 	combinedString := timestamp + payload + bc.secretKey
 	hasher := sha256.New()
 	hasher.Write([]byte(combinedString))
-	return hex.EncodeToString(hasher.Sum(nil))
+	hashString := hex.EncodeToString(hasher.Sum(nil))
+	return strings.ToUpper(hashString)
 
 }
 
@@ -151,17 +155,18 @@ func (bc *BreezeClient) ObtainSessionToken(apiSessionKey string) error {
 }
 
 // completing the login
-func (bc *BreezeClient) CompleteLogin(redirectURL string) error {
-	u, err := url.Parse(redirectURL)
-	if err != nil {
-		return fmt.Errorf("Error parsing the redirect URL:%v", err)
-	}
-	queryParams := u.Query()
-	session_key := queryParams.Get("apisession")
+func (bc *BreezeClient) CompleteLogin(session_key string) error {
+	// u, err := url.Parse(redirectURL)
+	// if err != nil {
+	// 	return fmt.Errorf("Error parsing the redirect URL:%v", err)
+	// }
+	// queryParams := u.Query()
+	// session_key := queryParams.Get("apisession")
+	// fmt.Println("Your Session Key:", session_key)
 	if session_key == "" {
 		return fmt.Errorf("Session Key returned was empty")
 	}
-	err = bc.ObtainSessionToken(session_key)
+	err := bc.ObtainSessionToken(session_key)
 	if err != nil {
 		return fmt.Errorf("Error in obtaining Session Token in CompleteLogin %v", err)
 	}
