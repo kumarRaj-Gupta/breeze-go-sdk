@@ -157,7 +157,7 @@ func (bc *BreezeClient) CompleteLogin(redirectURL string) error {
 		return fmt.Errorf("Error parsing the redirect URL:%v", err)
 	}
 	queryParams := u.Query()
-	session_key := queryParams.Get("session_key")
+	session_key := queryParams.Get("apisession")
 	if session_key == "" {
 		return fmt.Errorf("Session Key returned was empty")
 	}
