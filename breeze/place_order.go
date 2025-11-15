@@ -1,5 +1,10 @@
 package breeze
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // Place Order
 type PlaceOrderRequest struct {
 	StockCode    string `json:"stock_code"`
@@ -21,29 +26,32 @@ type PlaceOrderRequest struct {
 }
 
 type PlaceOrderSuccess struct {
-	Datetime     string `json:"datetime"`
-	StockCode    string `json:"stock_code"`
-	ExchangeCode string `json:"exchange_code"`
-	ProductType  string `json:"product_type"`
-	ExpiryDate   string `json:"expiry_date"`
-	Right        string `json:"right"`
-	StrikePrice  string `json:"strike_price"`
-	Open         string `json:"open"`
-	High         string `json:"high"`
-	Low          string `json:"low"`
-	Close        string `json:"close"`
-	Volume       string `json:"volume"`
-	OpenInterest string `json:"open_interest"`
-	Count        int    `json:"count"`
+	OrderId    string `json:"order_id"`
+	Message    string `json:"message"`
+	UserRemark string `json:"user_remark"`
 }
 
 type PlaceOrderResponse struct {
-	Success []PlaceOrderSuccess `json:"Success"`
-	Status  string              `json:"Status"`
-	Error   string              `json:"Error"`
+	Success PlaceOrderSuccess `json:"Success"`
+	Status  string            `json:"Status"`
+	Error   any               `json:"Error"`
 }
 
-func (bc *BreezeClient) PlaceOrder(order PlaceOrderRequest) (PlaceOrderResponse, error) {
-
-	return nil, nil
+func (bc *BreezeClient) PlaceOrder(order PlaceOrderRequest) (PlaceOrderSuccess, error) {
+	res, err := bc.request("POST", "order", PlaceOrderRequest{})
+	if err != nil {
+		return PlaceOrderSuccess{}, fmt.Errorf("There was an error getting response: %v", err)
+	}
+	resBody := &PlaceOrderResponse{}
+	byteResponse, ok := res.([]byte)
+	if ok {
+		err = json.Unmarshal(byteResponse, resBody)
+		if err != nil {
+			return PlaceOrderSuccess{}, fmt.Errorf("There was error unmarshalling the response: %v", err)
+		}
+	}
+	if resBody.Error != nil {
+		return PlaceOrderSuccess{}, fmt.Errorf("Some Error Occured Server Side. Status: %v, Error: %v", resBody.Status, resBody.Error)
+	}
+	return resBody.Success, nil
 }
