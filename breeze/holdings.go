@@ -6,8 +6,7 @@ import (
 )
 
 func (bc *BreezeClient) GetHoldings() ([]DematHolding, error) {
-	// res, err := bc.request("GET", "dematholdings", GetHoldingsRequest{})
-	res, err := bc.request("GET", "dematholdings", "{}")
+	res, err := bc.request("GET", "dematholdings", GetHoldingsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("Error in getting response: %v", err)
 	}

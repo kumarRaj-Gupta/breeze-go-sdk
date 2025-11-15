@@ -27,29 +27,38 @@ func NewBreezeClient(AppKey, SecretKey string) *BreezeClient {
 }
 
 func (bc *BreezeClient) request(method, path string, payload any) (any, error) {
-	// We won't simply json.Marshl() our payload because we have to make sure that extra whitespaces
-	// dont' seep into our request body. That will make Checksum fail on the API side in complex scenarios.
-	// Instead, we ought to create a buffer, write our payload into it and encode it into a JSON using json.encode()
-	//
-	// Looks like we have to use json.Marshal afterall. The checksum is causing a lot of issues.
+	// We rely on json.Marshal/Compact to correctly turn the empty struct into {}
 
 	rawJSONBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("Error Marshaling the payload")
+		return nil, fmt.Errorf("Error Marshaling the payload: %w", err)
 	}
 	var compactJSON bytes.Buffer
-	err = json.Compact(&compactJSON, rawJSONBytes)
+	// This is guaranteed to output "{}" for an empty struct
+	if err = json.Compact(&compactJSON, rawJSONBytes); err != nil {
+		return nil, fmt.Errorf("Error compacting JSON payload: %w", err)
+	}
 	payloadBytes := compactJSON.Bytes()
+
 	// Generating Timestamp and Checksum
 	timestamp := bc.generateTimestamp()
+	// Checksum is now calculated over the literal string "{}"
 	checksum := bc.generateChecksum(timestamp, string(payloadBytes))
+
 	// Full Path
 	fullPath := baseURL + path
 	// Creating the Request
-	req, err := http.NewRequest(method, fullPath, bytes.NewBuffer(payloadBytes))
+
+	//  FIX: Use nil as the body source if payloadBytes is exactly "{}"
+	// Note: Since you're using Marshal/Compact, payloadBytes will always be > 0.
+	// For GET requests, if the body is empty, it should technically be nil, but this API requires the payload in the body.
+	bodyReader := bytes.NewBuffer(payloadBytes)
+
+	req, err := http.NewRequest(method, fullPath, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating request :%v", err)
 	}
+
 	req.Header.Add("X-Checksum", "token "+checksum)
 	req.Header.Add("X-Timestamp", timestamp)
 	req.Header.Add("X-AppKey", bc.appKey)
