@@ -5,6 +5,22 @@ import (
 	"fmt"
 )
 
+type GetHoldingsRequest struct{}
+type DematHolding struct {
+	StockCode               string `json:"stock_code"`
+	StockISIN               string `json:"stock_ISIN"`
+	Quantity                string `json:"quantity"`
+	DemantTotalBulkQuantity string `json:"demat_total_bulk_quantity"`
+	DemantAvailQuantity     string `json:"demat_avail_quantity"`
+	BlockedQuantity         string `json:"blocked_quantity"`
+	DematAllocatedQuantity  string `json:"demat_allocated_quantity"`
+}
+type GetHoldingsResponse struct {
+	Success []DematHolding
+	Status  int
+	Error   any
+}
+
 func (bc *BreezeClient) GetHoldings() ([]DematHolding, error) {
 	res, err := bc.request("GET", "dematholdings", GetHoldingsRequest{})
 	if err != nil {
