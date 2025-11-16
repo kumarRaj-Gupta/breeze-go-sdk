@@ -117,7 +117,7 @@ func (bc *BreezeClient) GetOrderDetails(order OrderDetailsRequest) ([]OrderDetai
 		return nil, fmt.Errorf("Error unmarshalling the response body: %v", err)
 	}
 	if resBody.Error != nil {
-		return nil, fmt.Errorf("Error in Response Body: %v", err)
+		return nil, fmt.Errorf("Error in Response Body: Status Code:%v. Error:%v", resBody.Status, resBody.Error)
 	}
 	return resBody.Success, nil
 }
@@ -185,7 +185,7 @@ func (bc *BreezeClient) GetOrderList(order OrderListRequest) ([]OrderListSuccess
 		return nil, fmt.Errorf("Error unmarshalling the response body: %v", err)
 	}
 	if resBody.Error != nil {
-		return nil, fmt.Errorf("Error in Response Body: %v", err)
+		return nil, fmt.Errorf("Error in Response Body: Status Code:%v. Error:%v", resBody.Status, resBody.Error)
 	}
 	return resBody.Success, nil
 }
@@ -196,9 +196,9 @@ type CancelOrderRequest struct {
 	ExchangeCode string `json:"exchange_code"`
 }
 type CancelOrderResponse struct {
-	Success CancelOrderSuccess
-	Status  string
-	Error   any
+	Success CancelOrderSuccess `json:"Success"`
+	Status  string             `json:"Status"`
+	Error   any                `json:"Error"`
 }
 type CancelOrderSuccess struct {
 	OrderId string `json:"order_id"`
@@ -220,10 +220,54 @@ func (bc *BreezeClient) CancelOrder(order CancelOrderRequest) (CancelOrderSucces
 		return CancelOrderSuccess{}, fmt.Errorf("Error unmarshalling the response body: %v", err)
 	}
 	if resBody.Error != nil {
-		return CancelOrderSuccess{}, fmt.Errorf("Error in response body: %v", err)
+		return CancelOrderSuccess{}, fmt.Errorf("Error in response body: Status:%v, Error:%v", resBody.Status, resBody.Error)
 	}
 	return resBody.Success, nil
 
 }
 
 // Order Modification
+type OrderModificationRequest struct {
+	OrderId           string `json:"order_id"`
+	ExchangeCode      string `json:"exchange_code"`
+	OrderType         string `json:"order_type"`
+	Stoploss          string `json:"stoploss"`
+	Quantity          string `json:"quantity"`
+	Price             string `json:"price"`
+	Validity          string `json:"validity"`
+	ValidityDate      string `json:"validity_date"`
+	DisclosedQuantity string `json:"disclosed_quantity"`
+	ExpiryDate        string `json:"expiry_date"`
+	Right             string `json:"right"`
+	StrikePrice       string `json:"strike_price"`
+}
+type OrderModificationResponse struct {
+	Success OrderModificationSuccess `json:"Success"`
+	Status  string                   `json:"Status"`
+	Error   any                      `json:"Error"`
+}
+type OrderModificationSuccess struct {
+	Message string `json:"message"`
+	OrderId string `json:"order_id"`
+}
+
+func (bc *BreezeClient) ModifyOrder(order OrderModificationRequest) (OrderModificationSuccess, error) {
+	res, err := bc.request("PUT", "order", order)
+	if err != nil {
+		return OrderModificationSuccess{}, fmt.Errorf("Request Failed: %v", err)
+	}
+	resBytes, ok := res.([]byte)
+	if !ok {
+		return OrderModificationSuccess{}, fmt.Errorf("The Response is not a byte slice.")
+	}
+	resBody := &OrderModificationResponse{}
+	err = json.Unmarshal(resBytes, resBody)
+	if err != nil {
+		return OrderModificationSuccess{}, fmt.Errorf("Error unmarshalling the response body: %v", err)
+	}
+	if resBody.Error != nil {
+		return OrderModificationSuccess{}, fmt.Errorf("Error in Response Body. Status Code: %v. Error:%v", resBody.Status, resBody.Error)
+	}
+	return resBody.Success, nil
+
+}
