@@ -175,7 +175,6 @@ func (bc *BreezeClient) GetOrderList(order OrderListRequest) ([]OrderListSuccess
 	if err != nil {
 		return nil, fmt.Errorf("Error in request: %v", err)
 	}
-	// resBytes := &OrderDetailsResponse{}
 	resBytes, ok := res.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("Error, the response from request() is not a byte slice. res:%v", res)
@@ -190,3 +189,41 @@ func (bc *BreezeClient) GetOrderList(order OrderListRequest) ([]OrderListSuccess
 	}
 	return resBody.Success, nil
 }
+
+// Cancel Order
+type CancelOrderRequest struct {
+	OrderId      string `json:"order_id"`
+	ExchangeCode string `json:"exchange_code"`
+}
+type CancelOrderResponse struct {
+	Success CancelOrderSuccess
+	Status  string
+	Error   any
+}
+type CancelOrderSuccess struct {
+	OrderId string `json:"order_id"`
+	Message string `json:"message"`
+}
+
+func (bc *BreezeClient) CancelOrder(order CancelOrderRequest) (CancelOrderSuccess, error) {
+	res, err := bc.request("DELETE", "order", order)
+	if err != nil {
+		return CancelOrderSuccess{}, fmt.Errorf("Error in request: %v", err)
+	}
+	resBytes, ok := res.([]byte)
+	if !ok {
+		return CancelOrderSuccess{}, fmt.Errorf("Error response from request() is not a byte slice.")
+	}
+	resBody := &CancelOrderResponse{}
+	err = json.Unmarshal(resBytes, resBody)
+	if err != nil {
+		return CancelOrderSuccess{}, fmt.Errorf("Error unmarshalling the response body: %v", err)
+	}
+	if resBody.Error != nil {
+		return CancelOrderSuccess{}, fmt.Errorf("Error in response body: %v", err)
+	}
+	return resBody.Success, nil
+
+}
+
+// Order Modification
