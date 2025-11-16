@@ -56,7 +56,7 @@ func (bc *BreezeClient) PlaceOrder(order PlaceOrderRequest) (PlaceOrderSuccess, 
 	return resBody.Success, nil
 }
 
-// get order details
+// Get Order Details
 type OrderDetailsRequest struct {
 	ExchangeCode string `json:"exchange_code"`
 	OrderId      string `json:"order_id"`
@@ -122,6 +122,7 @@ func (bc *BreezeClient) GetOrderDetails(order OrderDetailsRequest) ([]OrderDetai
 	return resBody.Success, nil
 }
 
+// Order List
 type OrderListRequest struct {
 	ExchangeCode string `json:"exchange_code"`
 	FromDate     string `json:"from_date"`
@@ -169,4 +170,23 @@ type OrderListResponse struct {
 	Error   any
 }
 
-// func (bc *BreezeClient) GetOrderList()
+func (bc *BreezeClient) GetOrderList(order OrderListRequest) ([]OrderListSuccess, error) {
+	res, err := bc.request("GET", "order", order)
+	if err != nil {
+		return nil, fmt.Errorf("Error in request: %v", err)
+	}
+	// resBytes := &OrderDetailsResponse{}
+	resBytes, ok := res.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("Error, the response from request() is not a byte slice. res:%v", res)
+	}
+	resBody := &OrderListResponse{}
+	err = json.Unmarshal(resBytes, resBody)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshalling the response body: %v", err)
+	}
+	if resBody.Error != nil {
+		return nil, fmt.Errorf("Error in Response Body: %v", err)
+	}
+	return resBody.Success, nil
+}
